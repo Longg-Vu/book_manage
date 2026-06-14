@@ -1,6 +1,6 @@
-# Book Management API
+# Book Management
 
-REST API quản lý sách được xây dựng bằng Django REST Framework, PostgreSQL và JWT.
+Ứng dụng quản lý sách gồm backend Django REST Framework và frontend React/Vite.
 
 ## Chức năng
 
@@ -8,8 +8,9 @@ REST API quản lý sách được xây dựng bằng Django REST Framework, Pos
 - Phân trang mặc định 20 record, cho phép chọn 20 hoặc 100 record.
 - Custom filter theo `title`, `author`, `price` và `quantity`.
 - Xác thực bằng JWT.
+- Màn hình Home hiển thị danh sách, filter, thêm, xem chi tiết, sửa và xóa sách.
 
-## Cài đặt
+## Chạy backend
 
 ```powershell
 python -m venv .venv
@@ -20,6 +21,30 @@ python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
+
+Backend chạy tại:
+
+```text
+http://127.0.0.1:8000
+```
+
+## Chạy frontend
+
+Mở terminal khác:
+
+```powershell
+cd fontend
+npm install
+npm run dev
+```
+
+Frontend chạy tại:
+
+```text
+http://127.0.0.1:5173
+```
+
+Vite đã cấu hình proxy `/api` sang backend `http://127.0.0.1:8000`, nên frontend gọi API bằng đường dẫn `/api/books/`.
 
 Lấy access token:
 
@@ -63,6 +88,16 @@ Authorization: Bearer <access_token>
 
 Các filter có thể được kết hợp trong cùng một request.
 
+## Frontend Home
+
+Màn hình Home có các phần:
+
+1. API Login: đăng nhập bằng tài khoản Django để lấy JWT.
+2. Filter Books: lọc theo `title` và `author`.
+3. Add Book: thêm sách mới với `title`, `author`, `price`, `quantity`.
+4. Book List: hiển thị danh sách, page size 20/100, nút Next và Previous.
+5. Detail, Edit, Delete: thao tác cho từng dòng sách.
+
 ## Chạy test
 
 Test sử dụng SQLite trong bộ nhớ nên không cần bật PostgreSQL:
@@ -73,7 +108,8 @@ python manage.py test book --settings=book_manage.test_settings
 
 ## Minh chứng cần chụp
 
-1. Danh sách có các trường `count`, `next`, `previous`, `results`.
-2. Filter theo `title` hoặc `author`.
-3. Filter theo `price` hoặc `quantity`.
-4. Các request CRUD thành công trong Postman hoặc trình duyệt DRF.
+1. Link GitHub source code backend và frontend.
+2. Screenshot Home hiển thị danh sách sách lấy từ API.
+3. Screenshot có phân trang 20 hoặc 100 record.
+4. Screenshot filter theo `title` hoặc `author`.
+5. Screenshot thêm, sửa, xem chi tiết hoặc xóa sách nếu giáo viên yêu cầu thêm minh chứng.

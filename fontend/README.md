@@ -1,16 +1,35 @@
-# React + Vite
+# Book Management Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend React/Vite cho màn hình Home quản lý sách.
 
-Currently, two official plugins are available:
+## Chạy local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```powershell
+npm install
+npm run dev
+```
 
-## React Compiler
+Truy cập:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```text
+http://127.0.0.1:5173
+```
 
-## Expanding the ESLint configuration
+Backend cần chạy ở:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```text
+http://127.0.0.1:8000
+```
+
+Vite proxy đã chuyển `/api` về backend, nên không cần cấu hình CORS khi chạy local.
+
+## Chức năng
+
+- Login JWT bằng `/api/token/`.
+- Hiển thị danh sách sách từ `/api/books/`.
+- Phân trang 20 hoặc 100 record.
+- Filter theo `title` và `author`.
+- Thêm sách mới.
+- Xem chi tiết sách.
+- Cập nhật sách bằng `PATCH /api/books/<id>/`.
+- Xóa sách sau khi confirm.
