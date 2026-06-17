@@ -7,7 +7,7 @@
 - CRUD sách tại `/api/books/` và `/api/books/<id>/`.
 - Phân trang mặc định 20 record, cho phép chọn 20 hoặc 100 record.
 - Custom filter theo `title`, `author`, `price` và `quantity`.
-- Xác thực bằng JWT.
+- Xác thực bằng JWT, có logout bằng refresh token blacklist.
 - Màn hình Home hiển thị danh sách, filter, thêm, xem chi tiết, sửa và xóa sách.
 
 ## Chạy backend
@@ -64,6 +64,18 @@ Khi gọi API sách, thêm header:
 Authorization: Bearer <access_token>
 ```
 
+Logout:
+
+```http
+POST /api/logout/
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "refresh": "<refresh_token>"
+}
+```
+
 ## Endpoint
 
 | Method | Endpoint | Chức năng |
@@ -74,6 +86,7 @@ Authorization: Bearer <access_token>
 | PUT | `/api/books/<id>/` | Cập nhật toàn bộ |
 | PATCH | `/api/books/<id>/` | Cập nhật một phần |
 | DELETE | `/api/books/<id>/` | Xóa sách |
+| POST | `/api/logout/` | Logout và blacklist refresh token |
 
 ## Pagination và filter
 
@@ -92,11 +105,12 @@ Các filter có thể được kết hợp trong cùng một request.
 
 Màn hình Home có các phần:
 
-1. API Login: đăng nhập bằng tài khoản Django để lấy JWT.
+1. API Login: đăng nhập bằng tài khoản Django để lấy access token và refresh token.
 2. Filter Books: lọc theo `title` và `author`.
 3. Add Book: thêm sách mới với `title`, `author`, `price`, `quantity`.
 4. Book List: hiển thị danh sách, page size 20/100, nút Next và Previous.
 5. Detail, Edit, Delete: thao tác cho từng dòng sách.
+6. Logout: gọi `/api/logout/`, sau đó xóa token khỏi trình duyệt.
 
 ## Chạy test
 
@@ -105,6 +119,15 @@ Test sử dụng SQLite trong bộ nhớ nên không cần bật PostgreSQL:
 ```powershell
 python manage.py test book --settings=book_manage.test_settings
 ```
+
+## CI
+
+GitHub Actions chạy tự động khi push hoặc tạo pull request vào `main`:
+
+- `python manage.py check --settings=book_manage.test_settings`
+- `python manage.py test book --settings=book_manage.test_settings`
+- `npm run lint`
+- `npm run build`
 
 ## Minh chứng cần chụp
 

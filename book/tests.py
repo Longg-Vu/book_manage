@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
@@ -172,4 +173,47 @@ class BookApiTests(APITestCase):
         )
         self.assertFalse(
             Book.objects.filter(pk=create_response.data["id"]).exists()
+        )
+
+
+class AuthApiTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="logout_tester",
+            password="test-password",
+        )
+        self.logout_url = reverse("logout")
+
+    def test_logout_requires_authentication(self):
+        response = self.client.post(self.logout_url, {"refresh": "token"})
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_requires_refresh_token(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(self.logout_url, {})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("refresh", response.data)
+
+    def test_logout_blacklists_refresh_token(self):
+        refresh = RefreshToken.for_user(self.user)
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.logout_url,
+            {"refresh": str(refresh)},
+            format="json",
+        )
+        refresh_response = self.client.post(
+            reverse("token_refresh"),
+            {"refresh": str(refresh)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            refresh_response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
         )

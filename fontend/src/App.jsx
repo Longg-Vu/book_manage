@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  createBook,
+  deleteBook,
+  getBook,
+  getBooks,
+  login,
+  logout,
+  updateBook,
+} from './api'
 import './App.css'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
-const TOKEN_STORAGE_KEY = 'book_manage_access_token'
+const ACCESS_TOKEN_STORAGE_KEY = 'book_manage_access_token'
+const REFRESH_TOKEN_STORAGE_KEY = 'book_manage_refresh_token'
 
 const emptyBookForm = {
   title: '',
@@ -11,81 +20,13 @@ const emptyBookForm = {
   quantity: '',
 }
 
-function getErrorMessage(data, fallback) {
-  if (!data) {
-    return fallback
-  }
-
-  if (typeof data === 'string') {
-    return data
-  }
-
-  if (data.detail) {
-    return data.detail
-  }
-
-  const firstError = Object.entries(data)[0]
-  if (!firstError) {
-    return fallback
-  }
-
-  const [field, messages] = firstError
-  const message = Array.isArray(messages) ? messages.join(', ') : messages
-  return `${field}: ${message}`
-}
-
-async function apiRequest(path, { method = 'GET', token, body } = {}) {
-  const headers = {
-    Accept: 'application/json',
-  }
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  }
-
-  if (body) {
-    headers['Content-Type'] = 'application/json'
-  }
-
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  })
-
-  let data
-  try {
-    data = await response.json()
-  } catch {
-    // Some endpoints, like DELETE, may return an empty response body.
-  }
-
-  if (!response.ok) {
-    throw new Error(getErrorMessage(data, `Request failed: ${response.status}`))
-  }
-
-  return data
-}
-
-function buildBookQuery({ page, pageSize, filters }) {
-  const params = new URLSearchParams({
-    page: String(page),
-    page_size: String(pageSize),
-  })
-
-  if (filters.title.trim()) {
-    params.set('title', filters.title.trim())
-  }
-
-  if (filters.author.trim()) {
-    params.set('author', filters.author.trim())
-  }
-
-  return `/api/books/?${params.toString()}`
-}
-
 function App() {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_STORAGE_KEY) || '')
+  const [accessToken, setAccessToken] = useState(
+    () => localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || '',
+  )
+  const [refreshToken, setRefreshToken] = useState(
+    () => localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) || '',
+  )
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
   const [books, setBooks] = useState([])
   const [count, setCount] = useState(0)
@@ -109,7 +50,7 @@ function App() {
   )
 
   const loadBooks = useCallback(async () => {
-    if (!token) {
+    if (!accessToken) {
       setBooks([])
       setCount(0)
       setNextUrl(null)
@@ -121,10 +62,12 @@ function App() {
     setError('')
 
     try {
-      const data = await apiRequest(
-        buildBookQuery({ page, pageSize, filters: activeFilters }),
-        { token },
-      )
+      const data = await getBooks({
+        page,
+        pageSize,
+        filters: activeFilters,
+        token: accessToken,
+      })
       setBooks(data.results || [])
       setCount(data.count || 0)
       setNextUrl(data.next)
@@ -134,7 +77,7 @@ function App() {
     } finally {
       setLoading(false)
     }
-  }, [activeFilters, page, pageSize, token])
+  }, [accessToken, activeFilters, page, pageSize])
 
   useEffect(() => {
     const timerId = window.setTimeout(loadBooks, 0)
@@ -155,24 +98,41 @@ function App() {
     setMessage('')
 
     try {
-      const data = await apiRequest('/api/token/', {
-        method: 'POST',
-        body: loginForm,
-      })
-      localStorage.setItem(TOKEN_STORAGE_KEY, data.access)
-      setToken(data.access)
+      const data = await login(loginForm)
+      localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, data.access)
+      localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refresh)
+      setAccessToken(data.access)
+      setRefreshToken(data.refresh)
+      setLoginForm({ username: loginForm.username, password: '' })
       setMessage('Login successful.')
     } catch (err) {
       setError(err.message)
     }
   }
 
-  function handleLogout() {
-    localStorage.removeItem(TOKEN_STORAGE_KEY)
-    setToken('')
+  function clearSession() {
+    localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY)
+    setAccessToken('')
+    setRefreshToken('')
     setDetailBook(null)
     setEditBookId(null)
-    setMessage('Logged out.')
+  }
+
+  async function handleLogout() {
+    setError('')
+    setMessage('')
+
+    try {
+      if (accessToken && refreshToken) {
+        await logout({ accessToken, refreshToken })
+      }
+      setMessage('Logged out successfully.')
+    } catch (err) {
+      setMessage(`Local session cleared. Logout API returned: ${err.message}`)
+    } finally {
+      clearSession()
+    }
   }
 
   function handleFilterSubmit(event) {
@@ -193,11 +153,7 @@ function App() {
     setMessage('')
 
     try {
-      await apiRequest('/api/books/', {
-        method: 'POST',
-        token,
-        body: newBook,
-      })
+      await createBook({ book: newBook, token: accessToken })
       setNewBook(emptyBookForm)
       setPage(1)
       setMessage('Book added successfully.')
@@ -212,7 +168,7 @@ function App() {
     setMessage('')
 
     try {
-      const data = await apiRequest(`/api/books/${bookId}/`, { token })
+      const data = await getBook({ bookId, token: accessToken })
       setDetailBook(data)
     } catch (err) {
       setError(err.message)
@@ -235,10 +191,10 @@ function App() {
     setMessage('')
 
     try {
-      const data = await apiRequest(`/api/books/${editBookId}/`, {
-        method: 'PATCH',
-        token,
-        body: editBook,
+      const data = await updateBook({
+        bookId: editBookId,
+        book: editBook,
+        token: accessToken,
       })
       setEditBookId(null)
       setDetailBook(data)
@@ -258,10 +214,7 @@ function App() {
     setMessage('')
 
     try {
-      await apiRequest(`/api/books/${bookId}/`, {
-        method: 'DELETE',
-        token,
-      })
+      await deleteBook({ bookId, token: accessToken })
       setMessage('Book deleted successfully.')
       if (detailBook?.id === bookId) {
         setDetailBook(null)
@@ -282,8 +235,8 @@ function App() {
             Manage books from the Django REST API with pagination, filters, and CRUD actions.
           </p>
         </div>
-        <div className={token ? 'auth-status success' : 'auth-status'}>
-          {token ? 'JWT connected' : 'JWT required'}
+        <div className={accessToken ? 'auth-status success' : 'auth-status'}>
+          {accessToken ? 'JWT connected' : 'JWT required'}
         </div>
       </header>
 
@@ -308,7 +261,7 @@ function App() {
             autoComplete="current-password"
           />
           <button type="submit">Login</button>
-          {token && (
+          {accessToken && (
             <button className="secondary" type="button" onClick={handleLogout}>
               Logout
             </button>
@@ -394,7 +347,7 @@ function App() {
               />
             </label>
           </div>
-          <button type="submit" disabled={!token}>
+          <button type="submit" disabled={!accessToken}>
             Add Book
           </button>
         </form>
@@ -468,7 +421,7 @@ function App() {
               {!loading && books.length === 0 && (
                 <tr>
                   <td colSpan="5" className="empty-state">
-                    {token ? 'No books found.' : 'Login first to load books.'}
+                    {accessToken ? 'No books found.' : 'Login first to load books.'}
                   </td>
                 </tr>
               )}

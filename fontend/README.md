@@ -26,6 +26,7 @@ Vite proxy đã chuyển `/api` về backend, nên không cần cấu hình CORS
 ## Chức năng
 
 - Login JWT bằng `/api/token/`.
+- Logout bằng `/api/logout/`.
 - Hiển thị danh sách sách từ `/api/books/`.
 - Phân trang 20 hoặc 100 record.
 - Filter theo `title` và `author`.
